@@ -1,0 +1,10 @@
+cmake-build-debug/
+.DS_Store
+build/
+.idea/
+.vscode/
+gpt-repository-loader/
+bin/crypt_server
+bin/*.db3
+bin/*.db
+bin/tests
