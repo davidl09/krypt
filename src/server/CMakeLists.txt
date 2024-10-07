@@ -1,6 +1,7 @@
 add_library(
         server STATIC
         server.cpp
+        AuthenticationMiddleware.cpp
 )
 
 target_include_directories(server PUBLIC ${INCLUDE_DIR})

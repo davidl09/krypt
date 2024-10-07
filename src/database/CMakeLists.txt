@@ -1,7 +1,7 @@
 add_library(
         database STATIC
         database.cpp
-        ../include/database.h
+        userdatabase.cpp
 )
 
 target_include_directories(database PUBLIC ${INCLUDE_DIR})
