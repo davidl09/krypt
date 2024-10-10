@@ -4,6 +4,8 @@ project(crypt_server)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
+#add_compile_definitions(CROW_ENABLE_COMPRESSION)
+
 add_subdirectory(submodules)
 include(FetchContent)
 FetchContent_Declare(

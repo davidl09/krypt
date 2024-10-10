@@ -1,16 +1,23 @@
 #include "server.h"
+#include "AuthenticationMiddleware.h"
 #include <nlohmann/json.hpp>
 
+
 using namespace nlohmann;
+
+#include "settings.h"
 
 Server *Server::instance = nullptr;
 
 const fs::path Server::SERVER_ROOT = "./";
 
-Server * Server::get_instance(std::string_view databaseFile, std::string_view configSQLFile) {
-    if (instance == nullptr) {
-        instance = new Server(SERVER_ROOT / databaseFile, SERVER_ROOT / configSQLFile);
+Server * Server::get_instance() {
+    if (instance !=  nullptr) {
+        return instance;
     }
+    instance = new Server(
+        USERMGR_DB, USER_MGR_SCHEMA
+        );
     return instance;
 }
 
@@ -22,6 +29,7 @@ void Server::run_async(const int port) {
     app.port(port).multithreaded().run_async();
 }
 
+
 Server::Server(const fs::path &databaseFile, const fs::path &configSQLFile)
     : db(databaseFile, configSQLFile) {
 
@@ -30,18 +38,18 @@ Server::Server(const fs::path &databaseFile, const fs::path &configSQLFile)
             const auto body = json::parse(req.body);
 
             if (
-                not(body.contains(passwordKey)
-                and body.contains(emailKey)
+                not(
+                    body.contains(emailKey)
                 and body.contains(tagKey)
                 and body.contains(phoneNumberKey)
-                and body.contains(nameKey))
+                and body.contains(nameKey)
+                )
                     ) {
                 return crow::response(crow::BAD_REQUEST, "Missing credentials in JSON body");
             }
 
             if (not db.addUser(
                 body.at(emailKey),
-                to_string(body.at(passwordKey)),
                 body.at(nameKey),
                 body.at(tagKey),
                 body.at(phoneNumberKey)
@@ -53,7 +61,7 @@ Server::Server(const fs::path &databaseFile, const fs::path &configSQLFile)
         }
     );
 
-    CROW_ROUTE(app, "/validateUser").methods("POST"_method)(
+    CROW_ROUTE(app, "/deleteUser").methods("POST"_method)(
         [this](const crow::request& req) {
             try {
                 const auto body = json::parse(req.body);
@@ -64,7 +72,7 @@ Server::Server(const fs::path &databaseFile, const fs::path &configSQLFile)
                     return crow::response(crow::BAD_REQUEST, "Missing credentials in JSON body");
                 }
 
-                if (not db.deleteUser(body.at(emailKey), to_string(body.at(passwordKey)))) {
+                if (not db.deleteUser(body.at(emailKey))) {
                     return crow::response(crow::BAD_REQUEST, "Could not delete user");
                 }
 
@@ -78,4 +86,32 @@ Server::Server(const fs::path &databaseFile, const fs::path &configSQLFile)
             }
 
         });
+
+    // CROW_ROUTE(app, "/updateUser")
+    // .methods("POST"_method)
+    // .CROW_MIDDLEWARES(app, AuthenticationMiddleware)
+    // ([this](const crow::request& req, crow::response& res) {
+    //     const auto body = json::parse(req.body);
+    //
+    //
+    //     if (body.contains(phoneNumberKey)) {
+    //         const std::string newPhoneNumber = body.at(phoneNumberKey);
+    //         if (not db.changePhonenumber()
+    //     }
+    //     //
+    //     res.code = 200;
+    //     res.end();
+    // });
+
+#ifndef NDEBUG
+    CROW_ROUTE(app, "/testAuthMiddleware")
+    .methods("POST"_method)
+    //.CROW_MIDDLEWARES(app, AuthenticationMiddleware)
+    (
+        [](const crow::request& req, crow::response& res) {
+            res.code = 200;
+            res.end("OK");
+        });
+#endif
+
 }

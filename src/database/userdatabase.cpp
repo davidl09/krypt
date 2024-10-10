@@ -4,8 +4,7 @@
 
 #include "UserMgr.h"
 #include <openssl/evp.h>
-#include <numeric>
-
+#include "settings.h"
 
 
 using namespace sqlpp;
@@ -29,19 +28,17 @@ uint64_t UserMgr::numUsers() {
 
 bool UserMgr::addUser(
     const std::string& email,
-    const PasswordHash& password,
     const std::string& name,
     const std::string& tag,
     const std::string& phoneNumber) {
     try {
         Accounts user;
-        const auto now = system_clock::now();
+        const auto now = Clock::now();
         const auto timestamp = std::chrono::duration_cast<seconds>(now.time_since_epoch()).count();
 
         std::scoped_lock lock(dbMutex);
         db(insert_into(user).set(
             user.email = email,
-            user.passwordHash = static_cast<std::string>(password),
             user.name = name,
             user.tag = tag,
             user.timeCreated = timestamp,
@@ -56,36 +53,17 @@ bool UserMgr::addUser(
     }
 }
 
-bool UserMgr::deleteUser(const std::string &email, const PasswordHash &password) {
+bool UserMgr::deleteUser(const std::string &email) {
     Accounts user;
-    if (not validateUser(email, password)) {}
     db(remove_from(user)
         .where(
             user.email == email
-            and user.passwordHash.like(static_cast<std::string>(password))
         )
     );
     return true;
 }
 
-bool UserMgr::validateUser(const std::string& email, const PasswordHash &password) {
-    Accounts user;
-    std::scoped_lock lock(dbMutex);
-    const auto users =
-    db(
-        select(
-            user.email, user.passwordHash
-        ).from(user).where(
-            user.passwordHash.like(std::string(std::move(password))) and user.email.like(email)
-        )
-    );
-    return not users.empty();
-}
-
-Accounts UserMgr::getProfile(const std::string &email, const PasswordHash &password) {
-    if (not validateUser(email, password)) {
-        throw InvalidCredentialsException("Invalid email");
-    }
+Accounts UserMgr::getProfile(const std::string &email) {
 
     Accounts user;
     std::scoped_lock lock(dbMutex);
@@ -97,41 +75,42 @@ Accounts UserMgr::getProfile(const std::string &email, const PasswordHash &passw
     return user;
 }
 
+bool UserMgr::changeEmail(const std::string &email, const std::string &newEmail) {
+
+    Accounts user;
+    std::scoped_lock lock(dbMutex);
+    const auto result = db(update(user).set(user.email = newEmail).where(user.email.like(email)));
+    return result;
+}
+
+bool UserMgr::changePhonenumber(const std::string &email, const std::string &newPhoneNumber) {
+
+    Accounts user;
+    const auto users =
+        db(
+            select(
+                user.phoneNumber
+                ).from(user)
+                .where(user.email == email));
+
+    //phone number already in use
+    if (not users.empty()) {
+        return false;
+    }
+
+    {
+        std::scoped_lock lock(dbMutex);
+        const auto result = db(update(user).set(user.phoneNumber = newPhoneNumber).where(user.email.like(email)));
+        return result; //
+    }
+
+}
+
 #ifndef NDEBUG
 void UserMgr::clearAllUsers() {
     Accounts user;
     db(remove_from(user).unconditionally());
 }
 #endif
-
-
-
-UserMgr::PasswordHash::PasswordHash(const std::string & password)
-    : passwordHash(hashStringToSha256Hex(password)){
-}
-
-UserMgr::PasswordHash::PasswordHash(std::string &&str)
-    : passwordHash(hashStringToSha256Hex(str)) {}
-
-UserMgr::PasswordHash::operator std::string() const {
-    return passwordHash;
-}
-
-
-std::string UserMgr::PasswordHash::hashStringToSha256Hex(std::string_view input) {
-    std::array<unsigned char, EVP_MAX_MD_SIZE> hash{};
-    unsigned int hashLen;
-
-    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
-    EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr);
-    EVP_DigestUpdate(ctx, input.data(), input.size());
-    EVP_DigestFinal_ex(ctx, hash.data(), &hashLen);
-    EVP_MD_CTX_free(ctx);
-
-    // Convert the hash to a hexadecimal string (unchanged)
-    return std::accumulate(hash.begin(), hash.begin() + hashLen, std::string{},
-        [](auto acc, auto h) { return acc + std::format("{:02x}", h); });
-}
-
 
 

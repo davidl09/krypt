@@ -6,19 +6,20 @@
 #define USERDATABASE_H
 
 #include "database.h"
-
+#include "ddl.h"
+#include "PasswordHash.h"
 
 class UserMgr final : public Database {
 public:
     UserMgr(const fs::path& dbPath, const fs::path& configPath);
     uint64_t numUsers();
 
-    class PasswordHash;
-
-    bool addUser(const std::string &email, const PasswordHash& password, const std::string &name, const std::string &tag, const std::string& phoneNumber);
-    bool deleteUser(const std::string &email, const PasswordHash &password);
-    bool validateUser(const std::string &email, const PasswordHash &password);
-    db::Accounts getProfile(const std::string &email, const PasswordHash &password);
+    bool addUser(const std::string &email, const std::string &name, const std::string &tag, const std::string& phoneNumber);
+    bool deleteUser(const std::string &email);
+    db::Accounts getProfile(const std::string &email);
+    bool changeEmail(const std::string &email, const std::string &newEmail);
+    bool changePassword(const std::string& email, const PasswordHash& newPassword);
+    bool changePhonenumber(const std::string &email, const std::string &newPhoneNumber);
 
     class InvalidCredentialsException final : public DatabaseException {
     public:
@@ -28,17 +29,6 @@ public:
         explicit InvalidCredentialsException(const char *message)
             : DatabaseException(message) {}
 
-    };
-
-    class PasswordHash {
-    public:
-        PasswordHash(const std::string&);
-        PasswordHash(std::string&& str);
-        ~PasswordHash() = default;
-        operator std::string() const;
-    private:
-        static std::string hashStringToSha256Hex(std::string_view input);
-        std::string passwordHash;
     };
 
 #ifndef NDEBUG

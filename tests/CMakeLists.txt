@@ -8,7 +8,10 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(tests tests.cpp)
 target_link_libraries(
-        tests database
+        tests PRIVATE
+        database
         server
         Crow::Crow
-        gtest_main)
+        z
+        gtest_main
+)

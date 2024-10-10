@@ -7,10 +7,7 @@
 
 int main()
 {
-    std::unique_ptr<Server> server(Server::get_instance(
-    "database.db3",
-    "userdatabase-schema.sql"
-    ));
+    std::unique_ptr<Server> server(Server::get_instance());
 
     server->run(8080);
     return 0;

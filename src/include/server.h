@@ -1,22 +1,38 @@
 #pragma once
 
+#include <AuthenticationMiddleware.h>
+#include <AuthMgr.h>
+#include <TokenMgr.h>
+
 #include "UserMgr.h"
-#include "ChatMgr.h"
 #include "crow/middlewares/session.h"
+#include "crow/middlewares/cookie_parser.h"
 #include "crow.h"
+
+inline auto datetime_as_string() -> std::string {
+    const auto now = Clock::now();
+    return std::format("{:%d-%m-%Y_%H:%M:%OS}", now);
+}
 
 class Server {
 public:
-    static Server *get_instance(std::string_view databaseFile, std::string_view configSQLFile);
+    static Server *get_instance();
     void run(int port);
     void run_async(int port);
     const static fs::path SERVER_ROOT, STATIC_ROOT;
+    bool authenticateUser(const std::string& username, const std::string& password);
+
+#ifndef NDEBUG
+    auto& getApp() { return app; }
+    auto& getUserDb() { return db; }
+#endif
+
 private:
     Server(const fs::path &databaseFile, const fs::path& configSQLFile);
 
-    using Session = crow::SessionMiddleware<crow::InMemoryStore>;
-    crow::App<crow::CookieParser, Session> app;
+    crow::App<crow::CookieParser> app;
     UserMgr db;
+    AuthMgr authMgr;
     //ChatMgr chatMgr;
     static Server *instance;
 
